@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PhoneDetectorTest {
 
@@ -19,5 +19,30 @@ class PhoneDetectorTest {
         assertEquals("9876543210", result.get(0).value());
         assertEquals(5, result.get(0).start());
         assertEquals(15, result.get(0).end());
+    }
+
+    @Test
+    void findsNumberWithPlus91() {
+        List<Detection> result = detector.detect("Call +91 98765 43210 now");
+
+        assertEquals(1, result.size());
+        assertEquals("+91 98765 43210", result.get(0).value());
+    }
+
+    @Test
+    void ignoresNumberStartingWithFive() {
+        assertTrue(detector.detect("No: 5123456789").isEmpty());
+    }
+
+    @Test
+    void ignoresTwelveDigitNumber() {
+        assertTrue(detector.detect("Aadhaar 234567890123").isEmpty());
+    }
+
+    @Test
+    void findsTwoNumbers() {
+        List<Detection> result = detector.detect("Two: 9876543210 8123456789");
+
+        assertEquals(2, result.size());
     }
 }
