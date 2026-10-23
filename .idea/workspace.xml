@@ -6,8 +6,13 @@
   <component name="ChangeListManager">
     <list default="true" id="cc51b1f6-df99-44e5-b23b-e6d1a7da2e60" name="Changes" comment="Initial commit">
       <changelist_data name="&amp;Rishav_948" email="rishavsingh0811@gmail.com" automatic="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/privacyshield/mask/MaskerTest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/privacyshield/vault/CryptoService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/privacyshield/vault/RetentionPolicy.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/privacyshield/vault/Vault.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/com/privacyshield/vault/CryptoServiceTest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/com/privacyshield/vault/VaultTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/privacyshield/detect/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/privacyshield/detect/Main.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -111,8 +116,11 @@
     "Application.Main.executor": "Run",
     "JUnit.AadhaarDetectorTest.executor": "Run",
     "JUnit.DetectionEngineTest.executor": "Run",
+    "JUnit.MaskerTest.executor": "Run",
     "JUnit.PanDetectorTest.executor": "Run",
     "JUnit.PhoneDetectorTest.executor": "Run",
+    "JUnit.UnmaskerTest.executor": "Run",
+    "JUnit.VaultTest.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
