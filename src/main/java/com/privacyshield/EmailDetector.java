@@ -6,8 +6,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class EmailDetector implements Detector {
+    // A dot is allowed after the address so emails at the end of a sentence still match.
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
-            "(?i)(?<![A-Z0-9._%+-])[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}(?![A-Z0-9._%+-])"
+            "(?i)(?<![A-Z0-9._%+-])[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}(?![A-Z0-9_%+-])"
     );
 
     @Override
