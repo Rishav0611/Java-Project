@@ -10,6 +10,7 @@ PrivacyShield is a small Java tool for finding and masking personal data before 
 4. A redaction API, command-line demo, and build instructions.
 5. Fake-value masking with a fake-to-real map, so a reply can be restored.
 6. Master-password encryption of saved values with PBKDF2 and AES-GCM.
+7. A desktop GUI with live colour highlights, reply restoration, a Keep/Delete choice, and light and dark themes.
 
 ## What it detects
 
@@ -26,19 +27,45 @@ Requires Java 8 or newer and Maven. From the repository root, run:
 
     mvn package
 
-The build compiles the code and runs the tests.
+The build compiles the code, runs the tests, and creates two jars in `target/`:
+
+- `privacyshield-1.0.0.jar` is the normal library jar.
+- `privacyshield-1.0.0-gui.jar` is a runnable jar that includes the FlatLaf theme library.
 
 ## Run the tests
 
     mvn clean test
 
-The tests use JUnit 5 and cover the Verhoeff checksum, every detector (positive and negative cases), the scanner ordering and overlap rules, redaction, fake values, masking and unmasking, the crypto service, and the command-line demo. They only use made-up values.
+The tests use JUnit 5 and cover the Verhoeff checksum, every detector (positive and negative cases), the scanner ordering and overlap rules, redaction, fake values, masking and unmasking, the crypto service, the GUI session vault and highlight colours, and the command-line demo. They only use made-up values. The window smoke test is skipped automatically when no display is available.
 
 ## Run the demo
 
     java -cp target/classes com.privacyshield.PrivacyShieldCli "Contact person@example.com or 9876543210"
 
 The program prints data types and character positions, then prints a redacted version. Each detected value is replaced with `[REDACTED]`. It does not print the matched values separately.
+
+## Desktop GUI
+
+Build the runnable jar and start the window:
+
+    mvn package
+    java -jar target/privacyshield-1.0.0-gui.jar
+
+The window has four panes:
+
+- **Original text** (top left, editable). Detected values are highlighted while you type: Aadhaar red, PAN green, phone yellow and email blue.
+- **Masked text** (top right, read-only). Copy this into the AI chat.
+- **AI reply** (bottom left, editable). Paste the reply here.
+- **Restored text** (bottom right). Press **Restore reply** to put the real values back.
+
+Press **Mask** to fill the masked pane. Editing the original text afterwards clears the masked pane, so an old masked text cannot be shared by mistake. The **Mask mode** list offers two choices:
+
+- **Fake values** keeps each value's length and format and can be restored later.
+- **[REDACTED]** replaces each value with a fixed marker and cannot be restored.
+
+Restore works while the fake-to-real map is still in memory. **Keep/Delete...** asks whether to keep that map. **Delete** is the default, so closing the dialog without choosing also deletes. The map never touches the disk and is cleared when the window closes. The **Dark theme** button switches the FlatLaf theme.
+
+The GUI uses the same `PrivacyShield` engine as the command-line tools. It does not use a network connection or a database.
 
 ## Use in code
 
