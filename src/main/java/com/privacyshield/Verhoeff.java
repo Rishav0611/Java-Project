@@ -25,6 +25,10 @@ public class Verhoeff {
             {7, 0, 4, 6, 9, 1, 3, 2, 5, 8}
     };
 
+    private static final int[] INVERSE = {
+            0, 4, 3, 2, 1, 5, 6, 7, 8, 9
+    };
+
     public static boolean isValid(String number) {
         if (number == null || number.isEmpty()) {
             return false;
@@ -44,5 +48,30 @@ public class Verhoeff {
         }
 
         return checksum == 0;
+    }
+
+    /**
+     * Works out the check digit for a number that does not have one yet.
+     * Adding the returned digit to the end gives a number that passes isValid.
+     */
+    public static int checkDigit(String digits) {
+        if (digits == null || digits.isEmpty()) {
+            throw new IllegalArgumentException("digits cannot be null or empty");
+        }
+
+        int checksum = 0;
+
+        for (int i = 0; i < digits.length(); i++) {
+            char ch = digits.charAt(digits.length() - 1 - i);
+
+            if (ch < '0' || ch > '9') {
+                throw new IllegalArgumentException("digits can only contain 0-9");
+            }
+
+            int digit = ch - '0';
+            checksum = D[checksum][P[(i + 1) % 8][digit]];
+        }
+
+        return INVERSE[checksum];
     }
 }

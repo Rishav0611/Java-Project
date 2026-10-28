@@ -2,7 +2,9 @@ package com.privacyshield;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -44,5 +46,21 @@ class VerhoeffTest {
         assertFalse(Verhoeff.isValid("236-3"));
         assertFalse(Verhoeff.isValid("+2363"));
         assertFalse(Verhoeff.isValid("2363.0"));
+    }
+
+    @Test
+    void checkDigitCompletesAValidNumber() {
+        assertEquals(3, Verhoeff.checkDigit("236"));
+        assertEquals(1, Verhoeff.checkDigit("12345"));
+        assertEquals(4, Verhoeff.checkDigit("23456789012"));
+        assertEquals(0, Verhoeff.checkDigit("123456789012"));
+    }
+
+    @Test
+    void checkDigitRejectsBadInput() {
+        assertThrows(IllegalArgumentException.class, () -> Verhoeff.checkDigit(null));
+        assertThrows(IllegalArgumentException.class, () -> Verhoeff.checkDigit(""));
+        assertThrows(IllegalArgumentException.class, () -> Verhoeff.checkDigit("12a"));
+        assertThrows(IllegalArgumentException.class, () -> Verhoeff.checkDigit("12 3"));
     }
 }

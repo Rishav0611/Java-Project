@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 public class PrivacyShield {
     private static final String REDACTION_MARKER = "[REDACTED]";
@@ -105,6 +106,21 @@ public class PrivacyShield {
 
     public String sanitize(String text) {
         return redact(text);
+    }
+
+    /**
+     * Replaces every detected value with a fake value of the same length and
+     * format, and returns the masked text together with the fake-to-real map.
+     */
+    public MaskResult mask(String text) {
+        return new Masker(this).mask(text);
+    }
+
+    /**
+     * Puts the real values back into a text that contains fakes from mask.
+     */
+    public String unmask(String text, Map<String, String> fakeToReal) {
+        return new Unmasker().unmask(text, fakeToReal);
     }
 }
 
