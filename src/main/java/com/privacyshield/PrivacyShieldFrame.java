@@ -14,6 +14,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextPane;
 import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
@@ -48,6 +49,7 @@ public class PrivacyShieldFrame extends JFrame {
 
     private final PrivacyShield privacyShield = new PrivacyShield();
     private final SessionVault vault;
+    private final PhotoPanel photoPanel = new PhotoPanel();
 
     private final JTextPane originalPane = createTextPane(true);
     private final JTextPane maskedPane = createTextPane(false);
@@ -91,7 +93,7 @@ public class PrivacyShieldFrame extends JFrame {
         this.vault = vault;
 
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setMinimumSize(new Dimension(920, 640));
+        setMinimumSize(new Dimension(980, 680));
         setLocationByPlatform(true);
 
         buildUi();
@@ -114,6 +116,34 @@ public class PrivacyShieldFrame extends JFrame {
     }
 
     private void buildUi() {
+        add(buildHeader(), BorderLayout.NORTH);
+
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.addTab("Text", buildTextTab());
+        tabs.addTab("Photos", photoPanel);
+        add(tabs, BorderLayout.CENTER);
+    }
+
+    private JComponent buildHeader() {
+        JLabel title = new JLabel("PrivacyShield");
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 22f));
+
+        JLabel subtitle = new JLabel("Hide personal data in text and photos before sharing.");
+        subtitle.setFont(subtitle.getFont().deriveFont(Font.ITALIC));
+
+        JPanel titles = new JPanel(new BorderLayout(0, 2));
+        titles.add(title, BorderLayout.NORTH);
+        titles.add(subtitle, BorderLayout.SOUTH);
+
+        JPanel header = new JPanel(new BorderLayout(12, 0));
+        header.setBorder(BorderFactory.createEmptyBorder(10, 12, 8, 12));
+        header.add(titles, BorderLayout.CENTER);
+        header.add(themeButton, BorderLayout.EAST);
+        themeButton.addActionListener(event -> toggleTheme());
+        return header;
+    }
+
+    private JComponent buildTextTab() {
         JToolBar toolbar = new JToolBar();
         toolbar.setFloatable(false);
 
@@ -133,18 +163,19 @@ public class PrivacyShieldFrame extends JFrame {
         toolbar.add(new JLabel(" Mask mode: "));
         modeBox.setSelectedItem(MaskMode.getDefault());
         modeBox.setToolTipText("Fake values can be restored later; [REDACTED] cannot");
+        modeBox.setMaximumSize(modeBox.getPreferredSize());
         toolbar.add(modeBox);
         toolbar.add(Box.createHorizontalGlue());
-        toolbar.add(themeButton);
 
         maskButton.addActionListener(event -> maskText());
         restoreButton.addActionListener(event -> restoreReply());
         keepDeleteButton.addActionListener(event -> askKeepOrDelete());
-        themeButton.addActionListener(event -> toggleTheme());
 
-        add(toolbar, BorderLayout.NORTH);
-        add(buildCenter(), BorderLayout.CENTER);
-        add(buildSouth(), BorderLayout.SOUTH);
+        JPanel textTab = new JPanel(new BorderLayout());
+        textTab.add(toolbar, BorderLayout.NORTH);
+        textTab.add(buildCenter(), BorderLayout.CENTER);
+        textTab.add(buildSouth(), BorderLayout.SOUTH);
+        return textTab;
     }
 
     private JComponent buildCenter() {
