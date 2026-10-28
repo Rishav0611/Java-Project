@@ -23,10 +23,12 @@ import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
 
 /**
  * The Photos tab.
@@ -43,6 +45,9 @@ public class PhotoPanel extends JPanel {
             new FileNameExtensionFilter("Photos (JPEG, PNG)", "jpg", "jpeg", "png");
 
     private final PhotoService photoService;
+    private final QrCodeService qrCodeService;
+    private final OcrTextService ocrTextService;
+    private final ProtectionMetrics metrics;
     private final PhotoCanvas canvas = new PhotoCanvas();
     private final MetadataTableModel tableModel = new MetadataTableModel();
     private final JTable metadataTable = new JTable(tableModel);
@@ -50,6 +55,8 @@ public class PhotoPanel extends JPanel {
     private final JButton chooseButton = new JButton("Choose photo...");
     private final JButton stripButton = new JButton("Strip metadata");
     private final JButton saveButton = new JButton("Save redacted copy");
+    private final JButton qrButton = new JButton("Find QR codes");
+    private final JButton ocrButton = new JButton("Find text (OCR)");
     private final JButton undoButton = new JButton("Undo box");
     private final JButton clearButton = new JButton("Clear boxes");
 
@@ -65,11 +72,32 @@ public class PhotoPanel extends JPanel {
     }
 
     public PhotoPanel(PhotoService photoService) {
+        this(photoService, new QrCodeService(), new OcrTextService(), new ProtectionMetrics());
+    }
+
+    public PhotoPanel(ProtectionMetrics metrics) {
+        this(new PhotoService(), new QrCodeService(), new OcrTextService(), metrics);
+    }
+
+    public PhotoPanel(PhotoService photoService, QrCodeService qrCodeService,
+                      OcrTextService ocrTextService, ProtectionMetrics metrics) {
         if (photoService == null) {
             throw new IllegalArgumentException("photoService cannot be null");
         }
+        if (qrCodeService == null) {
+            throw new IllegalArgumentException("qrCodeService cannot be null");
+        }
+        if (ocrTextService == null) {
+            throw new IllegalArgumentException("ocrTextService cannot be null");
+        }
+        if (metrics == null) {
+            throw new IllegalArgumentException("metrics cannot be null");
+        }
 
         this.photoService = photoService;
+        this.qrCodeService = qrCodeService;
+        this.ocrTextService = ocrTextService;
+        this.metrics = metrics;
 
         buildUi();
         updateButtons();
@@ -134,12 +162,17 @@ public class PhotoPanel extends JPanel {
         chooseButton.setToolTipText("Choose a JPEG or PNG photo from this computer");
         stripButton.setToolTipText("Save a copy with GPS, camera, time and comment metadata removed");
         saveButton.setToolTipText("Save a copy with the black boxes painted on it");
+        qrButton.setToolTipText("Find QR codes and add a black box over each one");
+        ocrButton.setToolTipText("Read text with Tesseract and box Aadhaar, PAN, phone and email values");
         undoButton.setToolTipText("Remove the last black box");
         clearButton.setToolTipText("Remove every black box");
 
         toolbar.add(chooseButton);
         toolbar.add(stripButton);
         toolbar.add(saveButton);
+        toolbar.addSeparator();
+        toolbar.add(qrButton);
+        toolbar.add(ocrButton);
         toolbar.addSeparator();
         toolbar.add(undoButton);
         toolbar.add(clearButton);
@@ -162,6 +195,20 @@ public class PhotoPanel extends JPanel {
             @Override
             public void actionPerformed(ActionEvent event) {
                 saveRedactedCopy();
+            }
+        });
+
+        qrButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                findQrCodes();
+            }
+        });
+
+        ocrButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                findOcrText();
             }
         });
 
@@ -298,6 +345,7 @@ public class PhotoPanel extends JPanel {
             protected void done() {
                 try {
                     get();
+                    metrics.recordPhotoStripped();
                     setStatus("Saved " + output.getName()
                             + ". Metadata removed; the original photo is unchanged.");
                 } catch (Exception exception) {
@@ -343,10 +391,102 @@ public class PhotoPanel extends JPanel {
             protected void done() {
                 try {
                     get();
+                    metrics.recordPhotoRedacted(boxes.size());
                     setStatus("Saved " + output.getName()
                             + ". The boxes are black and the metadata is removed.");
                 } catch (Exception exception) {
                     showError("Could not save the redacted copy.", exception);
+                } finally {
+                    setBusy(false);
+                }
+            }
+        }.execute();
+    }
+
+    private void findQrCodes() {
+        if (busy || currentPhoto == null) {
+            return;
+        }
+
+        final File input = currentPhoto;
+
+        setStatus("Looking for QR codes...");
+        setBusy(true);
+
+        new SwingWorker<List<QrCodeResult>, Void>() {
+            @Override
+            protected List<QrCodeResult> doInBackground() throws Exception {
+                return qrCodeService.scan(input);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<QrCodeResult> codes = get();
+
+                    if (codes.isEmpty()) {
+                        setStatus("No QR codes found in this photo.");
+                        return;
+                    }
+
+                    List<Rectangle> boxes = new ArrayList<Rectangle>();
+
+                    for (QrCodeResult code : codes) {
+                        boxes.add(code.getBounds());
+                    }
+
+                    canvas.addBoxes(boxes);
+                    metrics.recordQrCodes(codes.size());
+                    setStatus(codes.size() + " QR code(s) found. "
+                            + "Black boxes added; save the redacted copy.");
+                } catch (Exception exception) {
+                    showError("Could not scan for QR codes.", exception);
+                } finally {
+                    setBusy(false);
+                }
+            }
+        }.execute();
+    }
+
+    private void findOcrText() {
+        if (busy || currentPhoto == null) {
+            return;
+        }
+
+        final File input = currentPhoto;
+
+        setStatus("Reading text with OCR...");
+        setBusy(true);
+
+        new SwingWorker<List<OcrMatch>, Void>() {
+            @Override
+            protected List<OcrMatch> doInBackground() throws Exception {
+                return ocrTextService.findSensitive(input);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<OcrMatch> matches = get();
+
+                    if (matches.isEmpty()) {
+                        setStatus("OCR found no Aadhaar, PAN, phone or email text "
+                                + "in this photo.");
+                        return;
+                    }
+
+                    List<Rectangle> boxes = new ArrayList<Rectangle>();
+
+                    for (OcrMatch match : matches) {
+                        boxes.add(match.getBounds());
+                    }
+
+                    canvas.addBoxes(boxes);
+                    metrics.recordOcrMatches(matches);
+                    setStatus(matches.size() + " sensitive text area(s) found by OCR. "
+                            + "Black boxes added; save the redacted copy.");
+                } catch (Exception exception) {
+                    showError("Could not read text from the photo.", exception);
                 } finally {
                     setBusy(false);
                 }
@@ -424,9 +564,18 @@ public class PhotoPanel extends JPanel {
     }
 
     private void showError(String message, Exception exception) {
+        if (exception instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+
+        // SwingWorker wraps the real problem in an ExecutionException. Only
+        // unwrap those wrappers, so a friendly message from our own code is
+        // shown instead of the deepest library error.
         Throwable cause = exception;
 
-        while (cause.getCause() != null) {
+        while ((cause instanceof ExecutionException
+                || cause instanceof InvocationTargetException)
+                && cause.getCause() != null) {
             cause = cause.getCause();
         }
 
@@ -434,10 +583,6 @@ public class PhotoPanel extends JPanel {
 
         if (detail == null || detail.trim().isEmpty()) {
             detail = cause.toString();
-        }
-
-        if (exception instanceof InterruptedException) {
-            Thread.currentThread().interrupt();
         }
 
         setStatus(message + " " + detail);
@@ -460,6 +605,8 @@ public class PhotoPanel extends JPanel {
 
         stripButton.setEnabled(!busy && hasPhoto);
         saveButton.setEnabled(!busy && hasPhoto && canvas.hasBoxes());
+        qrButton.setEnabled(!busy && hasPhoto);
+        ocrButton.setEnabled(!busy && hasPhoto);
         undoButton.setEnabled(!busy && canvas.hasBoxes());
         clearButton.setEnabled(!busy && canvas.hasBoxes());
     }

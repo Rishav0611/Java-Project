@@ -106,6 +106,46 @@ public class PhotoCanvas extends JPanel {
     }
 
     /**
+     * Adds one box in image coordinates, for example a QR code that should be
+     * covered. Boxes outside the image are clipped.
+     */
+    public void addBox(Rectangle box) {
+        if (box != null) {
+            addBoxes(Collections.singletonList(box));
+        }
+    }
+
+    /**
+     * Adds several boxes at once and repaints only if at least one was usable.
+     */
+    public void addBoxes(List<Rectangle> newBoxes) {
+        if (image == null || newBoxes == null) {
+            return;
+        }
+
+        Rectangle imageArea = new Rectangle(0, 0, image.getWidth(), image.getHeight());
+        boolean added = false;
+
+        for (Rectangle candidate : newBoxes) {
+            if (candidate == null) {
+                continue;
+            }
+
+            Rectangle box = candidate.intersection(imageArea);
+
+            if (box.width >= 2 && box.height >= 2) {
+                boxes.add(box);
+                added = true;
+            }
+        }
+
+        if (added) {
+            notifyBoxesChanged();
+            repaint();
+        }
+    }
+
+    /**
      * Called after a box is added, removed or cleared. The photo panel uses it
      * to enable or disable the save button.
      */

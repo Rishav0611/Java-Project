@@ -85,6 +85,54 @@ class PhotoCanvasTest {
         assertFalse(canvas.hasBoxes());
     }
 
+    @Test
+    void automaticBoxesAreClippedToTheImage() {
+        PhotoCanvas canvas = canvasWithImage(100, 100);
+        final int[] changes = {0};
+
+        canvas.setBoxChangeListener(new Runnable() {
+            @Override
+            public void run() {
+                changes[0]++;
+            }
+        });
+
+        Rectangle[] boxes = {
+                new Rectangle(10, 10, 20, 20),
+                new Rectangle(-15, -10, 25, 20),
+                new Rectangle(95, 95, 40, 40),
+                new Rectangle(0, 0, 1, 1),
+                null
+        };
+
+        for (Rectangle box : boxes) {
+            canvas.addBox(box);
+        }
+
+        assertEquals(3, canvas.getBoxes().size());
+        assertEquals(new Rectangle(10, 10, 20, 20), canvas.getBoxes().get(0));
+        assertEquals(new Rectangle(0, 0, 10, 10), canvas.getBoxes().get(1));
+        assertEquals(new Rectangle(95, 95, 5, 5), canvas.getBoxes().get(2));
+        assertEquals(3, changes[0]);
+    }
+
+    @Test
+    void boxesNeedAnImageFirst() {
+        PhotoCanvas canvas = new PhotoCanvas();
+        canvas.addBox(new Rectangle(0, 0, 10, 10));
+
+        assertTrue(canvas.getBoxes().isEmpty());
+    }
+
+    @Test
+    void addBoxesIgnoresNullOrEmptyLists() {
+        PhotoCanvas canvas = canvasWithImage(100, 100);
+        canvas.addBoxes(null);
+        canvas.addBoxes(java.util.Collections.<Rectangle>emptyList());
+
+        assertTrue(canvas.getBoxes().isEmpty());
+    }
+
     private static PhotoCanvas canvasWithImage(int width, int height) {
         PhotoCanvas canvas = new PhotoCanvas();
         canvas.setSize(200, 200);

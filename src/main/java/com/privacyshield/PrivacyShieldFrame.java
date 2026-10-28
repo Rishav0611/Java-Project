@@ -48,8 +48,10 @@ public class PrivacyShieldFrame extends JFrame {
                     + "Aadhaar: 2345 6789 0124";
 
     private final PrivacyShield privacyShield = new PrivacyShield();
+    private final ProtectionMetrics metrics = new ProtectionMetrics();
     private final SessionVault vault;
-    private final PhotoPanel photoPanel = new PhotoPanel();
+    private final PhotoPanel photoPanel;
+    private final DashboardPanel dashboardPanel;
 
     private final JTextPane originalPane = createTextPane(true);
     private final JTextPane maskedPane = createTextPane(false);
@@ -91,9 +93,11 @@ public class PrivacyShieldFrame extends JFrame {
         }
 
         this.vault = vault;
+        this.photoPanel = new PhotoPanel(metrics);
+        this.dashboardPanel = new DashboardPanel(metrics);
 
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setMinimumSize(new Dimension(980, 680));
+        setMinimumSize(new Dimension(1000, 700));
         setLocationByPlatform(true);
 
         buildUi();
@@ -121,6 +125,7 @@ public class PrivacyShieldFrame extends JFrame {
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Text", buildTextTab());
         tabs.addTab("Photos", photoPanel);
+        tabs.addTab("Dashboard", dashboardPanel);
         add(tabs, BorderLayout.CENTER);
     }
 
@@ -257,6 +262,10 @@ public class PrivacyShieldFrame extends JFrame {
         setPaneText(restoredPane, "");
 
         int count = result.getDetections().size();
+
+        if (count > 0) {
+            metrics.recordMasked(result.getDetections());
+        }
 
         if (count == 0) {
             setStatus("No personal data found. The masked text is the same as the original.");
