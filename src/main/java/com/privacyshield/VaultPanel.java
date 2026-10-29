@@ -6,11 +6,14 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.SwingWorker;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -40,6 +43,9 @@ public class VaultPanel extends JPanel {
     private final JButton deleteButton = new JButton("Delete vault");
     private final JLabel fileLabel = new JLabel(" ");
     private final JLabel statusLabel = new JLabel(" ");
+    private final JTextArea loadedArea = new JTextArea("No values loaded in this window.");
+
+    private Runnable afterLoad;
 
     public VaultPanel(SessionVault vault) {
         this(vault, new VaultStore(defaultFile()));
@@ -66,6 +72,14 @@ public class VaultPanel extends JPanel {
      */
     public static File defaultFile() {
         return new File(System.getProperty("user.home"), "privacyshield-vault.db");
+    }
+
+    /**
+     * Sets what happens after a successful load. The window uses this to open
+     * the Text tab, where the reply can be restored.
+     */
+    public void setAfterLoad(Runnable afterLoad) {
+        this.afterLoad = afterLoad;
     }
 
     private void buildUi() {
@@ -99,7 +113,11 @@ public class VaultPanel extends JPanel {
 
         JPanel body = new JPanel(new BorderLayout(0, 10));
         body.add(form, BorderLayout.NORTH);
-        body.add(buildInfoPanel(), BorderLayout.CENTER);
+
+        JPanel cards = new JPanel(new BorderLayout(0, 10));
+        cards.add(buildInfoPanel(), BorderLayout.NORTH);
+        cards.add(buildLoadedPanel(), BorderLayout.CENTER);
+        body.add(cards, BorderLayout.CENTER);
         return body;
     }
 
@@ -166,18 +184,38 @@ public class VaultPanel extends JPanel {
         return panel;
     }
 
+    private JPanel buildLoadedPanel() {
+        loadedArea.setEditable(false);
+        loadedArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
+        loadedArea.setLineWrap(true);
+        loadedArea.setWrapStyleWord(true);
+        loadedArea.setMargin(new Insets(6, 6, 6, 6));
+
+        JLabel hint = new JLabel("Fake values only. Paste one into the AI reply box to test Restore reply.");
+
+        JPanel panel = new JPanel(new BorderLayout(0, 6));
+        panel.setBorder(BorderFactory.createTitledBorder("Loaded fake values (safe to copy)"));
+        panel.add(new JScrollPane(loadedArea), BorderLayout.CENTER);
+        panel.add(hint, BorderLayout.SOUTH);
+        return panel;
+    }
+
     private void saveVault() {
         char[] password = passwordField.getPassword();
 
         if (password.length < MIN_PASSWORD_LENGTH) {
             Arrays.fill(password, '\0');
             setStatus("Use a master password with at least " + MIN_PASSWORD_LENGTH + " characters.");
+            showWarning("Password too short", "Use a master password with at least "
+                    + MIN_PASSWORD_LENGTH + " characters, for example a short sentence.");
             return;
         }
 
         if (!vault.hasValues()) {
             Arrays.fill(password, '\0');
             setStatus("There are no fake values to save. Mask a text with fake values first.");
+            showWarning("No fake values to save", "The vault saves the fake-to-real map.\n\n"
+                    + "In the Text tab, choose \"Fake values\", press Mask, then open this tab again.");
             return;
         }
 
@@ -205,7 +243,11 @@ public class VaultPanel extends JPanel {
                 try {
                     get();
                     refreshFileLabel();
+                    showLoadedValues(values);
                     setStatus("Saved " + values.size() + " value(s) to the vault file.");
+                    showInfo("Vault saved", "Saved " + values.size() + " fake value(s) to:\n"
+                            + store.getFile().getPath() + "\n\nKeep this password. Without it the "
+                            + "real values cannot be opened again.");
                 } catch (InterruptedException exception) {
                     Thread.currentThread().interrupt();
                     setStatus("Save was interrupted.");
@@ -222,12 +264,17 @@ public class VaultPanel extends JPanel {
         if (password.length < MIN_PASSWORD_LENGTH) {
             Arrays.fill(password, '\0');
             setStatus("Type the master password used when the vault was saved.");
+            showWarning("Password needed", "Type the same master password that was used to save "
+                    + "the vault (at least " + MIN_PASSWORD_LENGTH + " characters).");
             return;
         }
 
         if (!store.exists()) {
             Arrays.fill(password, '\0');
             setStatus("There is no vault file yet. Save values first.");
+            showWarning("No vault file", "No vault file was found at:\n"
+                    + store.getFile().getPath()
+                    + "\n\nGo to the Text tab, mask with \"Fake values\", then save the values here.");
             return;
         }
 
@@ -248,12 +295,21 @@ public class VaultPanel extends JPanel {
                     Map<String, String> values = get();
                     vault.loadValues(values);
                     refreshFileLabel();
+                    showLoadedValues(values);
 
                     if (values.isEmpty()) {
                         setStatus("The vault file is empty.");
+                        showInfo("Vault empty", "The vault file does not hold any values.");
                     } else {
                         setStatus("Loaded " + values.size() + " fake value(s). Paste the AI reply "
                                 + "in the Text tab and press Restore reply.");
+                        showInfo("Vault loaded", "Loaded " + values.size() + " fake value(s).\n\n"
+                                + "The Text tab will open. Paste the AI reply that contains these "
+                                + "fake values, then press Restore reply.");
+
+                        if (afterLoad != null) {
+                            afterLoad.run();
+                        }
                     }
                 } catch (InterruptedException exception) {
                     Thread.currentThread().interrupt();
@@ -341,6 +397,33 @@ public class VaultPanel extends JPanel {
         if (busy) {
             setStatus("Working...");
         }
+    }
+
+    private void showLoadedValues(Map<String, String> values) {
+        if (values == null || values.isEmpty()) {
+            loadedArea.setText("No values loaded in this window.");
+        } else {
+            StringBuilder text = new StringBuilder();
+
+            for (String fake : values.keySet()) {
+                if (text.length() > 0) {
+                    text.append('\n');
+                }
+                text.append(fake);
+            }
+
+            loadedArea.setText(text.toString());
+        }
+
+        loadedArea.setCaretPosition(0);
+    }
+
+    private void showInfo(String title, String message) {
+        JOptionPane.showMessageDialog(this, message, title, JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void showWarning(String title, String message) {
+        JOptionPane.showMessageDialog(this, message, title, JOptionPane.WARNING_MESSAGE);
     }
 
     private void showError(String title, Throwable throwable) {

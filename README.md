@@ -127,7 +127,11 @@ The vault is optional. It saves the current fake-to-real map so an AI reply can 
 
 The default file is `privacyshield-vault.db` in your home folder; its path and entry count are shown in the tab. The fake values are stored as plain keys, so the file can be searched later. The real values are encrypted with AES-GCM, using a key derived from the master password with PBKDF2WithHmacSHA256 and a random salt. The password itself is never written anywhere.
 
-To use the vault later, start the app, type the same password and press **Load into Text tab**. Paste the AI reply in the Text tab and press **Restore reply**; the loaded values work the same way as values masked in this window. A wrong password or a damaged file shows an error and nothing is loaded. **Delete vault** removes the file after a confirmation.
+To use the vault later, start the app, type the same password and press **Load into Text tab**. After a successful load the Text tab opens by itself. Paste the AI reply in the Text tab and press **Restore reply**; the loaded values work the same way as values masked in this window.
+
+The Vault tab also lists the loaded fake values (only the fakes, never the real values). If there is no AI reply to test with, copy one fake value into the **AI reply** box and press **Restore reply**; the matching real value appears on the right. This proves that the vault load worked.
+
+A wrong password or a damaged file shows an error and nothing is loaded. A short password, an empty session or a missing file is reported in a dialog as well as the status line. **Delete vault** removes the file after a confirmation.
 
 Without the password the real values cannot be opened; there is no recovery question. Saving and loading run in the background so the window stays responsive.
 

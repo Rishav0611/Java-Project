@@ -56,6 +56,8 @@ public class PrivacyShieldFrame extends JFrame {
     private final JTextPane replyPane = createTextPane(true);
     private final JTextPane restoredPane = createTextPane(false);
 
+    private JComponent textTab;
+
     private final JComboBox<MaskMode> modeBox = new JComboBox<MaskMode>(MaskMode.values());
     private final JButton themeButton = new JButton("Dark theme");
     private final JLabel statusLabel = new JLabel(" ");
@@ -124,12 +126,21 @@ public class PrivacyShieldFrame extends JFrame {
         add(buildHeader(), BorderLayout.NORTH);
 
         JTabbedPane tabs = new JTabbedPane();
-        tabs.addTab("Text", buildTextTab());
+        textTab = buildTextTab();
+        tabs.addTab("Text", textTab);
         tabs.addTab("Photos", photoPanel);
         tabs.addTab("Clipboard", clipboardPanel);
         tabs.addTab("Vault", vaultPanel);
         tabs.addTab("Dashboard", dashboardPanel);
         add(tabs, BorderLayout.CENTER);
+
+        vaultPanel.setAfterLoad(new Runnable() {
+            @Override
+            public void run() {
+                tabs.setSelectedComponent(textTab);
+                replyPane.requestFocusInWindow();
+            }
+        });
     }
 
     private JComponent buildHeader() {
