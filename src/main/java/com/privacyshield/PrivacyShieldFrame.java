@@ -20,9 +20,6 @@ import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import javax.swing.text.SimpleAttributeSet;
-import javax.swing.text.StyleConstants;
-import javax.swing.text.StyledDocument;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -31,7 +28,6 @@ import java.awt.Font;
 import java.awt.Insets;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.util.List;
 
 /**
  * The PrivacyShield desktop window.
@@ -51,6 +47,8 @@ public class PrivacyShieldFrame extends JFrame {
     private final ProtectionMetrics metrics = new ProtectionMetrics();
     private final SessionVault vault;
     private final PhotoPanel photoPanel;
+    private final ClipboardPanel clipboardPanel;
+    private final VaultPanel vaultPanel;
     private final DashboardPanel dashboardPanel;
 
     private final JTextPane originalPane = createTextPane(true);
@@ -94,10 +92,12 @@ public class PrivacyShieldFrame extends JFrame {
 
         this.vault = vault;
         this.photoPanel = new PhotoPanel(metrics);
+        this.clipboardPanel = new ClipboardPanel(metrics);
+        this.vaultPanel = new VaultPanel(vault);
         this.dashboardPanel = new DashboardPanel(metrics);
 
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setMinimumSize(new Dimension(1000, 700));
+        setMinimumSize(new Dimension(1100, 720));
         setLocationByPlatform(true);
 
         buildUi();
@@ -110,7 +110,8 @@ public class PrivacyShieldFrame extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent event) {
-                // The fake-to-real map lives in memory for this window only.
+                // Clear the in-memory map; the Vault tab must save it on purpose.
+                clipboardPanel.stopWatching();
                 PrivacyShieldFrame.this.vault.delete();
             }
         });
@@ -125,6 +126,8 @@ public class PrivacyShieldFrame extends JFrame {
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Text", buildTextTab());
         tabs.addTab("Photos", photoPanel);
+        tabs.addTab("Clipboard", clipboardPanel);
+        tabs.addTab("Vault", vaultPanel);
         tabs.addTab("Dashboard", dashboardPanel);
         add(tabs, BorderLayout.CENTER);
     }
@@ -133,7 +136,7 @@ public class PrivacyShieldFrame extends JFrame {
         JLabel title = new JLabel("PrivacyShield");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 22f));
 
-        JLabel subtitle = new JLabel("Hide personal data in text and photos before sharing.");
+        JLabel subtitle = new JLabel("Hide personal data in text, photos and the clipboard before sharing.");
         subtitle.setFont(subtitle.getFont().deriveFont(Font.ITALIC));
 
         JPanel titles = new JPanel(new BorderLayout(0, 2));
@@ -258,7 +261,7 @@ public class PrivacyShieldFrame extends JFrame {
 
         MaskResult result = vault.mask(originalPane.getText(), mode);
         setPaneText(maskedPane, result.getMaskedText());
-        applyHighlights(maskedPane, privacyShield.detect(maskedPane.getText()));
+        TextHighlighter.apply(maskedPane, privacyShield.detect(maskedPane.getText()));
         setPaneText(restoredPane, "");
 
         int count = result.getDetections().size();
@@ -354,15 +357,15 @@ public class PrivacyShieldFrame extends JFrame {
     }
 
     private void refreshHighlights() {
-        applyHighlights(originalPane, privacyShield.detect(originalPane.getText()));
-        applyHighlights(maskedPane, privacyShield.detect(maskedPane.getText()));
+        TextHighlighter.apply(originalPane, privacyShield.detect(originalPane.getText()));
+        TextHighlighter.apply(maskedPane, privacyShield.detect(maskedPane.getText()));
     }
 
     private void scheduleOriginalChange() {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                applyHighlights(originalPane, privacyShield.detect(originalPane.getText()));
+                TextHighlighter.apply(originalPane, privacyShield.detect(originalPane.getText()));
 
                 // A masked text from older input must not be shared by mistake.
                 if (!maskedPane.getText().isEmpty()) {
@@ -372,29 +375,6 @@ public class PrivacyShieldFrame extends JFrame {
                 }
             }
         });
-    }
-
-    private static void applyHighlights(JTextPane pane, List<Detection> detections) {
-        StyledDocument document = pane.getStyledDocument();
-
-        SimpleAttributeSet normal = new SimpleAttributeSet();
-        StyleConstants.setBackground(normal, pane.getBackground());
-        StyleConstants.setForeground(normal, pane.getForeground());
-        document.setCharacterAttributes(0, document.getLength(), normal, true);
-
-        for (Detection detection : detections) {
-            int start = detection.getStart();
-            int end = detection.getEnd();
-
-            if (start < 0 || end <= start || end > document.getLength()) {
-                continue;
-            }
-
-            SimpleAttributeSet attributes = new SimpleAttributeSet();
-            StyleConstants.setBackground(attributes, HighlightPalette.background(detection.getType()));
-            StyleConstants.setForeground(attributes, HighlightPalette.foreground(detection.getType()));
-            document.setCharacterAttributes(start, end - start, attributes, true);
-        }
     }
 
     private static void setPaneText(JTextPane pane, String text) {

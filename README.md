@@ -1,6 +1,6 @@
 # PrivacyShield
 
-PrivacyShield is a small Java tool for finding and masking personal data in text and photos before they are shared with an AI agent. It can mask text, strip photo metadata, cover QR codes and sensitive text found by OCR, and show a small dashboard of what it protected in the current window.
+PrivacyShield is a small Java tool for finding and masking personal data in text and photos before they are shared with an AI agent. It can mask text, strip photo metadata, cover QR codes and sensitive text found by OCR, clean personal values from the clipboard, keep fake values in an encrypted vault, and show a small dashboard of what it protected in the current window.
 
 ## Project phases
 
@@ -13,6 +13,8 @@ PrivacyShield is a small Java tool for finding and masking personal data in text
 7. A desktop GUI with live colour highlights, reply restoration, a Keep/Delete choice, and light and dark themes.
 8. Photo tools: GPS, camera and time metadata scanning, lossless metadata stripping, and manual black-box redaction.
 9. QR code detection, OCR text detection, automatic black boxes and a protection dashboard.
+10. A clipboard shield that checks copied text and replaces personal values with [REDACTED].
+11. An optional SQLite vault that keeps fake values on disk with the real values encrypted.
 
 ## What it detects
 
@@ -32,15 +34,15 @@ Requires Java 8 or newer and Maven. From the repository root, run:
 The build compiles the code, runs the tests, and creates two jars in `target/`:
 
 - `privacyshield-1.0.0.jar` is the normal library jar.
-- `privacyshield-1.0.0-gui.jar` is a runnable jar that includes the FlatLaf theme library, the metadata-extractor library, ZXing and Tess4J with the Windows Tesseract library and English data. This jar is large (about 23 MB) because of the OCR and QR libraries.
+- `privacyshield-1.0.0-gui.jar` is a runnable jar that includes the FlatLaf theme library, the metadata-extractor library, ZXing, Tess4J with the Windows Tesseract library and English data, and the SQLite JDBC driver. This jar is large because of the OCR, QR and database libraries.
 
 ## Run the tests
 
     mvn clean test
 
-The tests use JUnit 5 and cover the Verhoeff checksum, every detector (positive and negative cases), the scanner ordering and overlap rules, redaction, fake values, masking and unmasking, the crypto service, the GUI session vault and highlight colours, photo metadata scanning, lossless JPEG and PNG stripping, manual redaction, the drag-box photo canvas, QR decoding and bounds, OCR word grouping and sensitive-text boxes, the protection counters, the detector self-check and the command-line demo. They only use made-up values, a made-up JPEG with synthetic EXIF fields and generated QR codes. OCR tests use a fake engine, so they do not need the native Tesseract library. The window smoke test is skipped automatically when no display is available.
+The tests use JUnit 5 and cover the Verhoeff checksum, every detector (positive and negative cases), the scanner ordering and overlap rules, redaction, fake values, masking and unmasking, the crypto service, the GUI session vault and highlight colours, photo metadata scanning, lossless JPEG and PNG stripping, manual redaction, the drag-box photo canvas, QR decoding and bounds, OCR word grouping and sensitive-text boxes, the protection counters, the detector self-check, the clipboard shield, the SQLite vault and the command-line demo. They only use made-up values, a made-up JPEG with synthetic EXIF fields, generated QR codes and temporary vault files. OCR tests use a fake engine, so they do not need the native Tesseract library. The window smoke test is skipped automatically when no display is available.
 
-There are 161 tests. The small synthetic detector check in the dashboard reports 100% recall and precision on its 8 made-up values; this checks the format rules, not real-world accuracy.
+There are 180 tests. The small synthetic detector check in the dashboard reports 100% recall and precision on its 8 made-up values; this checks the format rules, not real-world accuracy.
 
 ## Run the demo
 
@@ -55,7 +57,7 @@ Build the runnable jar and start the window:
     mvn package
     java -jar target/privacyshield-1.0.0-gui.jar
 
-The window has three tabs, **Text**, **Photos** and **Dashboard**, and one **Dark theme** button for all of them.
+The window has five tabs, **Text**, **Photos**, **Clipboard**, **Vault** and **Dashboard**, and one **Dark theme** button for all of them.
 
 ### Text tab
 
@@ -71,7 +73,7 @@ Press **Mask** to fill the masked pane. Editing the original text afterwards cle
 - **Fake values** keeps each value's length and format and can be restored later.
 - **[REDACTED]** replaces each value with a fixed marker and cannot be restored.
 
-Restore works while the fake-to-real map is still in memory. **Keep/Delete...** asks whether to keep that map. **Delete** is the default, so closing the dialog without choosing also deletes. The map never touches the disk and is cleared when the window closes.
+Restore works while the fake-to-real map is still in memory. **Keep/Delete...** asks whether to keep that map. **Delete** is the default, so closing the dialog without choosing also deletes. Unless you save the map in the **Vault** tab, it never touches the disk and is cleared when the window closes.
 
 ### Photos tab
 
@@ -103,15 +105,41 @@ For another language, or on macOS and Linux, install Tesseract 5 and start the j
 
 If OCR cannot start, the Photos tab shows a message with these options instead of crashing.
 
+### Clipboard tab
+
+The clipboard is checked only on this computer and is never uploaded. The tab reads plain text only; images, files and formatted content are ignored.
+
+- **Check now** shows the clipboard in the preview and highlights any Aadhaar-like number, PAN, phone number or email it finds.
+- **Clean now** replaces those values with `[REDACTED]` and writes the clean text back to the clipboard.
+- **Watch clipboard** is off by default. When it is on, the tab looks at the clipboard about every 1.2 seconds and cleans new text automatically.
+
+Automatic cleaning uses `[REDACTED]`, not fake values. The cleaned text contains no personal values, so the next look simply finds nothing and the shield does not clean its own output again. If you need to restore a reply, mask the text in the **Text** tab with **Fake values** instead. Cleaned count appears on the **Dashboard**.
+
+The preview and the history are kept in memory only; nothing is saved to disk.
+
+### Vault tab
+
+The vault is optional. It saves the current fake-to-real map so an AI reply can be restored after the window was closed.
+
+1. In the **Text** tab, mask with **Fake values** and press **Keep/Delete...**, then **Keep**.
+2. Open the **Vault** tab and type a master password of at least 8 characters.
+3. Press **Save current values**. This replaces any old vault contents after a confirmation.
+
+The default file is `privacyshield-vault.db` in your home folder; its path and entry count are shown in the tab. The fake values are stored as plain keys, so the file can be searched later. The real values are encrypted with AES-GCM, using a key derived from the master password with PBKDF2WithHmacSHA256 and a random salt. The password itself is never written anywhere.
+
+To use the vault later, start the app, type the same password and press **Load into Text tab**. Paste the AI reply in the Text tab and press **Restore reply**; the loaded values work the same way as values masked in this window. A wrong password or a damaged file shows an error and nothing is loaded. **Delete vault** removes the file after a confirmation.
+
+Without the password the real values cannot be opened; there is no recovery question. Saving and loading run in the background so the window stays responsive.
+
 ### Dashboard
 
-The **Dashboard** tab counts what the current window protected: text values masked, OCR areas covered, QR codes found and photos cleaned. The table splits the counts by type (Aadhaar, PAN, phone, email) and shows a total. **Reset stats** clears the counters.
+The **Dashboard** tab counts what the current window protected: text values masked, OCR areas covered, clipboard values cleaned, QR codes found and photos cleaned. The table splits the counts by type (Aadhaar, PAN, phone, email) and shows a total. **Reset stats** clears the counters.
 
-The counts exist only in memory and contain no personal values, so nothing about the data is written to disk. **Run detector check** runs the format detectors over six small synthetic samples (eight expected values) and shows recall, precision and any misses or false positives. This is a quick self-check of the rules, not a measure of accuracy on real photos.
+The counts exist only in memory and contain no personal values, so no statistics are written to disk. **Run detector check** runs the format detectors over six small synthetic samples (eight expected values) and shows recall, precision and any misses or false positives. This is a quick self-check of the rules, not a measure of accuracy on real photos.
 
-The dashboard also refreshes by itself after a mask, a QR scan, an OCR scan, a strip or a redaction.
+The dashboard also refreshes by itself after a mask, a clipboard clean, a QR scan, an OCR scan, a strip or a redaction.
 
-The GUI uses the same `PrivacyShield` engine as the command-line tools. It does not use a network connection or a database.
+The GUI uses the same `PrivacyShield` engine as the command-line tools. It does not use a network connection. It writes files only when you save a photo or create the vault.
 
 ## Use in code
 
@@ -164,11 +192,34 @@ QR decoding uses ZXing. OCR uses Tess4J, and the engine can be replaced:
     ProtectionMetrics metrics = new ProtectionMetrics();
     metrics.recordMasked(result.getDetections());
     metrics.recordOcrMatches(matches);
+    metrics.recordClipboard(cleaned.getDetections());
     metrics.recordQrCodes(codes.size());
     metrics.recordPhotoStripped();
     metrics.recordPhotoRedacted(boxes.size());
 
 The counters live in memory only. `addChangeListener()` lets a panel refresh when they change.
+
+## Clipboard shield in code
+
+    ClipboardShield shield = new ClipboardShield();
+    ClipboardCheck check = shield.inspect();
+    ClipboardCheck cleaned = shield.clean();
+
+`inspect()` reads plain text from the system clipboard and detects personal values without changing it. `clean()` replaces them with `[REDACTED]`, writes the result back and reports `isCleaned()`. Both return a `ClipboardCheck` that holds the text, the detections and the value count. `ClipboardShield` also has a constructor that takes any `ClipboardText`, which is how the tests use a small fake clipboard instead of the real one.
+
+## Vault in code
+
+    VaultStore store = new VaultStore(new File("privacy-vault.db"));
+    store.save(masterPassword, result.getFakeToReal());
+
+    Map<String, String> loaded = store.load(masterPassword);
+    new SessionVault().loadValues(loaded);
+
+    store.delete();
+
+`save()` replaces the old entries in one transaction and encrypts every real value with `CryptoService`. `load()` needs the same master password and throws `VaultLockedException` for a wrong password or damaged data. `count()` works without the password because only fake keys and encrypted values are in the file. `delete()` removes the file.
+
+`SessionVault.loadValues()` places a loaded map into the current window, so **Restore reply** works after loading. Only the fake keys are stored as plain text; the real values stay encrypted.
 
 ## Mask and unmask
 
@@ -194,7 +245,7 @@ It prints the original text, the masked text, the restored text and the fake-to-
     String saved = crypto.encrypt(realValue, masterPassword);
     String realValueAgain = crypto.decrypt(saved, masterPassword);
 
-The master password is turned into a key with PBKDF2WithHmacSHA256 (65,536 iterations, random 16-byte salt). Values are encrypted with AES-GCM using a new random 12-byte IV every time. A wrong password or changed data throws `VaultLockedException`.
+The master password is turned into a key with PBKDF2WithHmacSHA256 (65,536 iterations, random 16-byte salt). Values are encrypted with AES-GCM using a new random 12-byte IV every time. A wrong password or changed data throws `VaultLockedException`. The **Vault** tab and `VaultStore` use this service for every real value they save.
 
 ## Limits
 
@@ -202,6 +253,8 @@ The master password is turned into a key with PBKDF2WithHmacSHA256 (65,536 itera
 - OCR depends on picture quality, lighting and font. Words that Tesseract cannot read cannot be boxed, so review the preview.
 - Only QR codes are decoded, not other barcode types.
 - The redaction boxes are applied when the copy is saved. The preview alone does not change the photo.
+- Clipboard watching reads plain text only, and other apps can read the clipboard before the next timed check runs. For a value you need immediately, use **Copy**, then **Clean now**, or paste only after the shield reports that it cleaned the text.
+- The vault protects the real values, not the fact that a vault exists: the fake keys are stored as plain text. Anyone who has both the file and the master password can read the values, so keep the file private. A lost password cannot be recovered.
 - The dashboard counts cover one window session. They are not saved or uploaded, and the built-in detector check uses only synthetic samples.
 - Strip and redact remove metadata, but the saved picture itself is still a picture. Nothing else is hidden by these tools.
 

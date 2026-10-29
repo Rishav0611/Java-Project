@@ -2,6 +2,7 @@ package com.privacyshield;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -149,10 +150,52 @@ class SessionVaultTest {
     }
 
     @Test
+    void loadedValuesCanRestoreAReply() {
+        SessionVault vault = new SessionVault();
+        Map<String, String> loaded = new LinkedHashMap<String, String>();
+        loaded.put("priya@fake.example", "priya.sharma@example.com");
+
+        vault.loadValues(loaded);
+
+        assertTrue(vault.hasValues());
+        assertEquals(KeepPolicy.KEEP, vault.getPolicy());
+        assertEquals(loaded, vault.getSavedValues());
+        assertEquals("Send it to priya.sharma@example.com",
+                vault.restore("Send it to priya@fake.example"));
+    }
+
+    @Test
+    void loadingAnEmptyMapForgetsOldValues() {
+        SessionVault vault = new SessionVault();
+        vault.mask(TEXT, MaskMode.FAKE);
+
+        vault.loadValues(new LinkedHashMap<String, String>());
+
+        assertFalse(vault.hasValues());
+        assertEquals(KeepPolicy.DELETE, vault.getPolicy());
+    }
+
+    @Test
+    void loadedValuesCannotBeChangedByCallers() {
+        SessionVault vault = new SessionVault();
+        Map<String, String> loaded = new LinkedHashMap<String, String>();
+        loaded.put("priya@fake.example", "priya.sharma@example.com");
+
+        vault.loadValues(loaded);
+        loaded.put("other@fake.example", "other@example.com");
+
+        assertEquals(1, vault.getSavedValues().size());
+        assertThrows(UnsupportedOperationException.class,
+                () -> vault.getSavedValues().put("fake", "real"));
+    }
+
+    @Test
     void nullArgumentsAreRejected() {
         assertThrows(IllegalArgumentException.class, () -> new SessionVault(null));
         assertThrows(IllegalArgumentException.class,
                 () -> new SessionVault().mask(TEXT, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SessionVault().loadValues(null));
     }
 
     private static String fakeFor(MaskResult result, String real) {

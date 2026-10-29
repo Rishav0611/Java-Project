@@ -34,6 +34,23 @@ class ProtectionMetricsTest {
     }
 
     @Test
+    void recordsClipboardCountsByType() {
+        ProtectionMetrics metrics = new ProtectionMetrics();
+
+        metrics.recordClipboard(Arrays.asList(
+                new Detection(DataType.EMAIL, "a@example.com", 0, 13),
+                new Detection(DataType.EMAIL, "b@example.com", 20, 33)));
+        metrics.recordClipboard(Collections.singletonList(
+                new Detection(DataType.PAN, "ABCPD1234E", 0, 10)));
+
+        assertEquals(3, metrics.getClipboardValues());
+        assertEquals(2, metrics.getClipboardCount(DataType.EMAIL));
+        assertEquals(1, metrics.getClipboardCount(DataType.PAN));
+        assertEquals(0, metrics.getClipboardCount(DataType.PHONE));
+        assertEquals(2, metrics.getCoveredCount(DataType.EMAIL));
+    }
+
+    @Test
     void recordsQrAndPhotoCounts() {
         ProtectionMetrics metrics = new ProtectionMetrics();
 
@@ -70,9 +87,11 @@ class ProtectionMetricsTest {
         assertEquals(3, changes[0]);
         assertEquals(0, metrics.getMaskedValues());
         assertEquals(0, metrics.getOcrValues());
+        assertEquals(0, metrics.getClipboardValues());
         assertEquals(0, metrics.getQrCodes());
         assertEquals(0, metrics.getPhotosCleaned());
         assertEquals(0, metrics.getMaskedCount(DataType.PAN));
+        assertEquals(0, metrics.getClipboardCount(DataType.PAN));
     }
 
     @Test
@@ -81,9 +100,11 @@ class ProtectionMetricsTest {
 
         assertThrows(IllegalArgumentException.class, () -> metrics.recordMasked(null));
         assertThrows(IllegalArgumentException.class, () -> metrics.recordOcrMatches(null));
+        assertThrows(IllegalArgumentException.class, () -> metrics.recordClipboard(null));
         assertThrows(IllegalArgumentException.class, () -> metrics.recordQrCodes(-1));
         assertThrows(IllegalArgumentException.class, () -> metrics.recordPhotoRedacted(-1));
         assertThrows(IllegalArgumentException.class, () -> metrics.getMaskedCount(null));
+        assertThrows(IllegalArgumentException.class, () -> metrics.getClipboardCount(null));
         assertThrows(IllegalArgumentException.class, () -> metrics.addChangeListener(null));
     }
 }

@@ -55,6 +55,24 @@ public class SessionVault {
     }
 
     /**
+     * Loads a fake-to-real map read from the encrypted vault. Restoring a
+     * reply then works as if the text had just been masked in this window.
+     */
+    public void loadValues(Map<String, String> fakeToReal) {
+        if (fakeToReal == null) {
+            throw new IllegalArgumentException("fakeToReal cannot be null");
+        }
+
+        if (fakeToReal.isEmpty()) {
+            delete();
+            return;
+        }
+
+        current = new MaskResult("", fakeToReal, Collections.<Detection>emptyList());
+        policy = KeepPolicy.KEEP;
+    }
+
+    /**
      * True when the current mask result has at least one fake value.
      */
     public boolean hasValues() {

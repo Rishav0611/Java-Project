@@ -21,15 +21,17 @@ import java.util.Locale;
 /**
  * The Dashboard tab.
  *
- * Shows how many text values, OCR areas and QR codes were covered in this
- * window, how many photos were cleaned and a type-wise table. It also runs a
- * small detector self-check on made-up samples. Nothing is written to disk.
+ * Shows how many text values, OCR areas, clipboard values and QR codes were
+ * covered in this window, how many photos were cleaned and a type-wise table.
+ * It also runs a small detector self-check on made-up samples. Nothing is
+ * written to disk.
  */
 public class DashboardPanel extends JPanel {
     private final ProtectionMetrics metrics;
 
     private final JLabel maskedValue = new JLabel("0");
     private final JLabel ocrValue = new JLabel("0");
+    private final JLabel clipboardValue = new JLabel("0");
     private final JLabel qrValue = new JLabel("0");
     private final JLabel photosValue = new JLabel("0");
     private final JLabel areasLabel = new JLabel(" ");
@@ -69,6 +71,7 @@ public class DashboardPanel extends JPanel {
     public void refresh() {
         maskedValue.setText(String.valueOf(metrics.getMaskedValues()));
         ocrValue.setText(String.valueOf(metrics.getOcrValues()));
+        clipboardValue.setText(String.valueOf(metrics.getClipboardValues()));
         qrValue.setText(String.valueOf(metrics.getQrCodes()));
         photosValue.setText(String.valueOf(metrics.getPhotosCleaned()));
         areasLabel.setText("Redacted photo areas: " + metrics.getRedactedAreas()
@@ -91,9 +94,10 @@ public class DashboardPanel extends JPanel {
         header.add(title, BorderLayout.NORTH);
         header.add(intro, BorderLayout.SOUTH);
 
-        JPanel cards = new JPanel(new GridLayout(1, 4, 10, 0));
+        JPanel cards = new JPanel(new GridLayout(1, 5, 8, 0));
         cards.add(createCard("Text values masked", maskedValue));
         cards.add(createCard("OCR areas covered", ocrValue));
+        cards.add(createCard("Clipboard cleaned", clipboardValue));
         cards.add(createCard("QR codes found", qrValue));
         cards.add(createCard("Photos cleaned", photosValue));
 
@@ -101,10 +105,11 @@ public class DashboardPanel extends JPanel {
         table.setFillsViewportHeight(true);
         table.setRowHeight(24);
         table.getTableHeader().setReorderingAllowed(false);
-        table.getColumnModel().getColumn(0).setPreferredWidth(140);
-        table.getColumnModel().getColumn(1).setPreferredWidth(120);
-        table.getColumnModel().getColumn(2).setPreferredWidth(120);
-        table.getColumnModel().getColumn(3).setPreferredWidth(100);
+        table.getColumnModel().getColumn(0).setPreferredWidth(120);
+        table.getColumnModel().getColumn(1).setPreferredWidth(105);
+        table.getColumnModel().getColumn(2).setPreferredWidth(105);
+        table.getColumnModel().getColumn(3).setPreferredWidth(105);
+        table.getColumnModel().getColumn(4).setPreferredWidth(80);
 
         JLabel tableTitle = new JLabel("Values by type");
         tableTitle.setFont(tableTitle.getFont().deriveFont(Font.BOLD));
@@ -197,7 +202,7 @@ public class DashboardPanel extends JPanel {
      * Four read-only rows, one for each data type.
      */
     private static final class TypeTableModel extends AbstractTableModel {
-        private static final String[] COLUMNS = {"Type", "Text masked", "OCR covered", "Total"};
+        private static final String[] COLUMNS = {"Type", "Text masked", "OCR covered", "Clipboard", "Total"};
         private final ProtectionMetrics metrics;
 
         private TypeTableModel(ProtectionMetrics metrics) {
@@ -241,6 +246,8 @@ public class DashboardPanel extends JPanel {
                 case 2:
                     return metrics.getOcrCount(type);
                 case 3:
+                    return metrics.getClipboardCount(type);
+                case 4:
                     return metrics.getCoveredCount(type);
                 default:
                     return 0;

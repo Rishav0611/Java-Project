@@ -14,10 +14,12 @@ import java.util.Map;
 public class ProtectionMetrics {
     private final Map<DataType, Integer> maskedByType = emptyCounts();
     private final Map<DataType, Integer> ocrByType = emptyCounts();
+    private final Map<DataType, Integer> clipboardByType = emptyCounts();
     private final List<Runnable> listeners = new ArrayList<Runnable>();
 
     private int maskedValues;
     private int ocrValues;
+    private int clipboardValues;
     private int qrCodes;
     private int photosStripped;
     private int photosRedacted;
@@ -53,8 +55,22 @@ public class ProtectionMetrics {
         notifyListeners();
     }
 
-    public synchronized void recordQrCodes(int count) {
-        checkCount(count, "count");
+    public synchronized void recordClipboard(List<Detection> detections) {
+        if (detections == null) {
+            throw new IllegalArgumentException("detections cannot be null");
+        }
+
+        for (Detection detection : detections) {
+            if (detection != null && detection.getType() != null) {
+                clipboardValues++;
+                increment(clipboardByType, detection.getType());
+            }
+        }
+
+        notifyListeners();
+    }
+
+    public synchronized void recordQrCodes(int count) {        checkCount(count, "count");
         qrCodes += count;
         notifyListeners();
     }
@@ -77,6 +93,10 @@ public class ProtectionMetrics {
 
     public synchronized int getOcrValues() {
         return ocrValues;
+    }
+
+    public synchronized int getClipboardValues() {
+        return clipboardValues;
     }
 
     public synchronized int getQrCodes() {
@@ -115,13 +135,22 @@ public class ProtectionMetrics {
         return ocrByType.get(type);
     }
 
+    public synchronized int getClipboardCount(DataType type) {
+        if (type == null) {
+            throw new IllegalArgumentException("type cannot be null");
+        }
+
+        return clipboardByType.get(type);
+    }
+
     public synchronized int getCoveredCount(DataType type) {
-        return getMaskedCount(type) + getOcrCount(type);
+        return getMaskedCount(type) + getOcrCount(type) + getClipboardCount(type);
     }
 
     public synchronized void reset() {
         maskedValues = 0;
         ocrValues = 0;
+        clipboardValues = 0;
         qrCodes = 0;
         photosStripped = 0;
         photosRedacted = 0;
@@ -130,6 +159,7 @@ public class ProtectionMetrics {
         for (DataType type : DataType.values()) {
             maskedByType.put(type, 0);
             ocrByType.put(type, 0);
+            clipboardByType.put(type, 0);
         }
 
         notifyListeners();
