@@ -44,12 +44,8 @@ public class PrivacyShieldFrame extends JFrame {
                     + "Aadhaar: 2345 6789 0124";
 
     private final PrivacyShield privacyShield = new PrivacyShield();
-    private final ProtectionMetrics metrics = new ProtectionMetrics();
     private final SessionVault vault;
-    private final PhotoPanel photoPanel;
-    private final ClipboardPanel clipboardPanel;
     private final VaultPanel vaultPanel;
-    private final DashboardPanel dashboardPanel;
 
     private final JTextPane originalPane = createTextPane(true);
     private final JTextPane maskedPane = createTextPane(false);
@@ -93,10 +89,7 @@ public class PrivacyShieldFrame extends JFrame {
         }
 
         this.vault = vault;
-        this.photoPanel = new PhotoPanel(metrics);
-        this.clipboardPanel = new ClipboardPanel(metrics);
         this.vaultPanel = new VaultPanel(vault);
-        this.dashboardPanel = new DashboardPanel(metrics);
 
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setMinimumSize(new Dimension(1100, 720));
@@ -113,7 +106,6 @@ public class PrivacyShieldFrame extends JFrame {
             @Override
             public void windowClosed(WindowEvent event) {
                 // Clear the in-memory map; the Vault tab must save it on purpose.
-                clipboardPanel.stopWatching();
                 PrivacyShieldFrame.this.vault.delete();
             }
         });
@@ -128,10 +120,7 @@ public class PrivacyShieldFrame extends JFrame {
         JTabbedPane tabs = new JTabbedPane();
         textTab = buildTextTab();
         tabs.addTab("Text", textTab);
-        tabs.addTab("Photos", photoPanel);
-        tabs.addTab("Clipboard", clipboardPanel);
         tabs.addTab("Vault", vaultPanel);
-        tabs.addTab("Dashboard", dashboardPanel);
         add(tabs, BorderLayout.CENTER);
 
         vaultPanel.setAfterLoad(new Runnable() {
@@ -147,7 +136,7 @@ public class PrivacyShieldFrame extends JFrame {
         JLabel title = new JLabel("PrivacyShield");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 22f));
 
-        JLabel subtitle = new JLabel("Hide personal data in text, photos and the clipboard before sharing.");
+        JLabel subtitle = new JLabel("Hide personal data in text before sharing.");
         subtitle.setFont(subtitle.getFont().deriveFont(Font.ITALIC));
 
         JPanel titles = new JPanel(new BorderLayout(0, 2));
@@ -276,10 +265,6 @@ public class PrivacyShieldFrame extends JFrame {
         setPaneText(restoredPane, "");
 
         int count = result.getDetections().size();
-
-        if (count > 0) {
-            metrics.recordMasked(result.getDetections());
-        }
 
         if (count == 0) {
             setStatus("No personal data found. The masked text is the same as the original.");
