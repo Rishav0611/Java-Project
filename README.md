@@ -25,7 +25,7 @@ The checks are format-based. They do not confirm a person's identity or contact 
 
 ## Build
 
-Requires Java 8 or newer and Maven. From the repository root, run:
+Requires Java 17 or newer and Maven. The project compiles with Java 17 language level and was tested on a newer JDK as well. From the repository root, run:
 
     mvn package
 
